@@ -9,7 +9,7 @@ export const handLandmarker = await HandLandmarker.createFromOptions(vision, {
   baseOptions: {
     modelAssetPath: "/model/hand_landmarker.task",
   },
-  numHands: 2,
+  numHands: 4,
   runningMode: "VIDEO",
 });
 

@@ -21,6 +21,20 @@ body {
     background: black;
 }
 
-#video {
+#landing {
+    width: 336px;
+    height: 262px;
+    overflow: hidden;
+    font-family: system-ui, sans-serif;
+    background: black;
+    z-index: 9999px;
+    color: white;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.hidden {
     display: none;
 }

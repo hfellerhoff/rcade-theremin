@@ -1,8 +1,12 @@
+import * as Tone from "tone";
+
+import { SYSTEM, on } from "@rcade/plugin-input-classic";
+
 import type {
   HandLandmarkerResult,
   NormalizedLandmark,
 } from "@mediapipe/tasks-vision";
-import { handLandmarker } from "./hands";
+import { FINGERS, handLandmarker } from "./hands";
 import "./style.css";
 
 const WIDTH = 336;
@@ -10,18 +14,20 @@ const HEIGHT = 262;
 
 const video = document.querySelector<HTMLVideoElement>("#video")!;
 const canvasElement = document.querySelector<HTMLCanvasElement>("#canvas")!;
+const landingElement = document.querySelector<HTMLDivElement>("#landing")!;
 
 let gameStarted = false;
 
-function update() {
-  if (!gameStarted) {
-  } else {
-  }
+// function update() {
+//   if (!gameStarted) {
 
-  requestAnimationFrame(update);
-}
+//   } else {
+//   }
 
-update();
+//   requestAnimationFrame(update);
+// }
+
+// update();
 
 const constraints = {
   audio: false,
@@ -55,8 +61,30 @@ function onProcessResults(results: HandLandmarkerResult) {
   });
 }
 
+let audio:
+  | undefined
+  | {
+      gain: Tone.Gain;
+      oscillator: Tone.Oscillator;
+      signal: Tone.Signal<"frequency">;
+    } = undefined;
+
 async function predictWebcam() {
   if (!canvasElement || !ctx) return;
+
+  if (!audio) {
+    const gain = new Tone.Gain(0).toDestination();
+    const oscillator = new Tone.Oscillator().connect(gain).start();
+    const signal = new Tone.Signal({
+      units: "frequency",
+    }).connect(oscillator.frequency);
+
+    audio = {
+      gain,
+      oscillator,
+      signal,
+    };
+  }
 
   let startTimeMs = performance.now();
   if (lastVideoTime !== video.currentTime) {
@@ -69,11 +97,38 @@ async function predictWebcam() {
   // console.log(results.landmarks?.[0]);
 
   ctx.clearRect(0, 0, WIDTH, HEIGHT);
-  ctx.fillStyle = "red";
+
+  if (!results.landmarks?.[0]?.[FINGERS.INDEX_FINGER_MCP]) {
+    audio?.gain.gain.rampTo(0, 0.1, Tone.now());
+  }
+
   results.landmarks.forEach((hand, handIndex) => {
     hand.forEach((finger, fingerIndex) => {
-      // state[handIndex][fingerIndex] = finger;
-      ctx.fillRect(WIDTH - finger.x * WIDTH, finger.y * HEIGHT, 5, 5);
+      if (handIndex === 0) {
+        ctx.strokeStyle = "red";
+      }
+      if (handIndex === 1) {
+        ctx.strokeStyle = "blue";
+      }
+      if (handIndex === 2) {
+        ctx.strokeStyle = "green";
+      }
+      if (handIndex === 3) {
+        ctx.strokeStyle = "purple";
+      }
+
+      ctx.beginPath();
+      ctx.arc(WIDTH - finger.x * WIDTH, finger.y * HEIGHT, 2, 0, 2 * Math.PI);
+      ctx.stroke();
+
+      const frequencyValue = 100 + finger.x * 500;
+      const gainAdjustment = 100 / frequencyValue;
+      const gainValue = 1 - finger.y + gainAdjustment;
+
+      if (fingerIndex === FINGERS.INDEX_FINGER_MCP) {
+        audio?.gain.gain.rampTo(gainValue, 0.1, Tone.now());
+        audio?.signal.rampTo(frequencyValue, 0.1, Tone.now());
+      }
     });
   });
 
@@ -83,9 +138,36 @@ async function predictWebcam() {
   }
 }
 
-navigator.mediaDevices.getUserMedia(constraints).then(function success(stream) {
-  console.log(stream);
-  video.srcObject = stream;
-  video.addEventListener("loadeddata", predictWebcam);
-  webcamRunning = true;
+let toneStarted = false;
+on("press", () => {
+  if (!toneStarted) {
+    Tone.start();
+    toneStarted = true;
+    console.log("started!");
+  }
 });
+
+function start() {
+  if (!gameStarted) {
+    if (SYSTEM.ONE_PLAYER) {
+      gameStarted = true;
+    } else if (SYSTEM.TWO_PLAYER) {
+      gameStarted = true;
+    }
+
+    requestAnimationFrame(start);
+  } else {
+    navigator.mediaDevices
+      .getUserMedia(constraints)
+      .then(function success(stream) {
+        console.log(stream);
+        video.srcObject = stream;
+        canvasElement.classList.remove("hidden");
+        landingElement.remove();
+        video.addEventListener("loadeddata", predictWebcam);
+        webcamRunning = true;
+      });
+  }
+}
+
+start();
