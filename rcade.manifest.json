@@ -1,0 +1,17 @@
+{
+  "$schema": "https://rcade.dev/manifest.schema.json",
+  "name": "theremin",
+  "display_name": "Theremin",
+  "description": "theremin",
+  "visibility": "public",
+  "authors": {
+    "display_name": "Henry"
+  },
+  "dependencies": [
+    {
+      "name": "@rcade/input-classic",
+      "version": "1.0.0"
+    }
+  ],
+  "permissions": ["camera"]
+}
