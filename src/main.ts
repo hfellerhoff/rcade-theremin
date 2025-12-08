@@ -46,20 +46,28 @@ type Finger = NormalizedLandmark;
 const createHand = () =>
   new Array(22).fill(0).map((_, i) => ({ x: 0, y: 0, z: 0, visibility: 0 }));
 
-const state: Record<number, NormalizedLandmark[]> = {
-  0: createHand(),
-  1: createHand(),
+type Audio =
+  | undefined
+  | {
+      gain: Tone.Gain;
+      oscillator: Tone.Oscillator;
+      signal: Tone.Signal<"frequency">;
+    };
+
+const state: Record<number, Audio> = {
+  0: undefined,
+  1: undefined,
 };
 
-function onProcessResults(results: HandLandmarkerResult) {
-  if (!ctx) return;
+// function onProcessResults(results: HandLandmarkerResult) {
+//   if (!ctx) return;
 
-  results.landmarks.forEach((hand, handIndex) => {
-    hand.forEach((finger, fingerIndex) => {
-      state[handIndex][fingerIndex] = finger;
-    });
-  });
-}
+//   results.landmarks.forEach((hand, handIndex) => {
+//     hand.forEach((finger, fingerIndex) => {
+//       state[handIndex][fingerIndex] = finger;
+//     });
+//   });
+// }
 
 let audio:
   | undefined
@@ -69,40 +77,41 @@ let audio:
       signal: Tone.Signal<"frequency">;
     } = undefined;
 
+function ensureAudio(handIndex: number) {
+  if (state[handIndex]) return;
+
+  const gain = new Tone.Gain(0).toDestination();
+  const oscillator = new Tone.Oscillator().connect(gain).start();
+  const signal = new Tone.Signal({
+    units: "frequency",
+  }).connect(oscillator.frequency);
+
+  state[handIndex] = {
+    gain,
+    oscillator,
+    signal,
+  };
+}
+
 async function predictWebcam() {
   if (!canvasElement || !ctx) return;
-
-  if (!audio) {
-    const gain = new Tone.Gain(0).toDestination();
-    const oscillator = new Tone.Oscillator().connect(gain).start();
-    const signal = new Tone.Signal({
-      units: "frequency",
-    }).connect(oscillator.frequency);
-
-    audio = {
-      gain,
-      oscillator,
-      signal,
-    };
-  }
 
   let startTimeMs = performance.now();
   if (lastVideoTime !== video.currentTime) {
     lastVideoTime = video.currentTime;
   }
 
-  // onProcessResults(handLandmarker.detectForVideo(video, startTimeMs));
   const results = handLandmarker.detectForVideo(video, startTimeMs);
-
-  // console.log(results.landmarks?.[0]);
 
   ctx.clearRect(0, 0, WIDTH, HEIGHT);
 
-  if (!results.landmarks?.[0]?.[FINGERS.INDEX_FINGER_MCP]) {
-    audio?.gain.gain.rampTo(0, 0.1, Tone.now());
-  }
+  const handHasDataList = Object.keys(state).map((_, index) => {
+    return !!results.landmarks[index]?.length;
+  });
 
   results.landmarks.forEach((hand, handIndex) => {
+    ensureAudio(handIndex);
+
     hand.forEach((finger, fingerIndex) => {
       if (handIndex === 0) {
         ctx.strokeStyle = "red";
@@ -126,10 +135,18 @@ async function predictWebcam() {
       const gainValue = 1 - finger.y + gainAdjustment;
 
       if (fingerIndex === FINGERS.INDEX_FINGER_MCP) {
-        audio?.gain.gain.rampTo(gainValue, 0.1, Tone.now());
-        audio?.signal.rampTo(frequencyValue, 0.1, Tone.now());
+        state[handIndex]?.gain.gain.rampTo(gainValue, 0.1, Tone.now());
+        state[handIndex]?.signal.rampTo(frequencyValue, 0.1, Tone.now());
       }
     });
+  });
+
+  handHasDataList.map((hasData, handIndex) => {
+    ensureAudio(handIndex);
+
+    if (!hasData) {
+      state[handIndex]?.gain.gain.rampTo(0, 0.1, Tone.now());
+    }
   });
 
   // Call this function again to keep predicting when the browser is ready.
