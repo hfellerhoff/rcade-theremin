@@ -6,7 +6,7 @@ import type {
   HandLandmarkerResult,
   NormalizedLandmark,
 } from "@mediapipe/tasks-vision";
-import { FINGERS, handLandmarker } from "./hands";
+import { FINGERS, HAND_COUNT, handLandmarker } from "./hands";
 import "./style.css";
 
 const WIDTH = 336;
@@ -54,7 +54,13 @@ type Audio =
       signal: Tone.Signal<"frequency">;
     };
 
-const state: Record<number, Audio> = {
+const globalAudio: {
+  gain: Tone.Gain | undefined;
+} = {
+  gain: undefined,
+};
+
+const handAudio: Record<number, Audio> = {
   0: undefined,
   1: undefined,
 };
@@ -69,24 +75,16 @@ const state: Record<number, Audio> = {
 //   });
 // }
 
-let audio:
-  | undefined
-  | {
-      gain: Tone.Gain;
-      oscillator: Tone.Oscillator;
-      signal: Tone.Signal<"frequency">;
-    } = undefined;
-
 function ensureAudio(handIndex: number) {
-  if (state[handIndex]) return;
+  if (handAudio[handIndex] || !globalAudio.gain) return;
 
-  const gain = new Tone.Gain(0).toDestination();
+  const gain = new Tone.Gain(0).connect(globalAudio.gain);
   const oscillator = new Tone.Oscillator().connect(gain).start();
   const signal = new Tone.Signal({
     units: "frequency",
   }).connect(oscillator.frequency);
 
-  state[handIndex] = {
+  handAudio[handIndex] = {
     gain,
     oscillator,
     signal,
@@ -105,7 +103,7 @@ async function predictWebcam() {
 
   ctx.clearRect(0, 0, WIDTH, HEIGHT);
 
-  const handHasDataList = Object.keys(state).map((_, index) => {
+  const handHasDataList = Object.keys(handAudio).map((_, index) => {
     return !!results.landmarks[index]?.length;
   });
 
@@ -135,8 +133,12 @@ async function predictWebcam() {
       const gainValue = 1 - finger.y + gainAdjustment;
 
       if (fingerIndex === FINGERS.INDEX_FINGER_MCP) {
-        state[handIndex]?.gain.gain.rampTo(gainValue, 0.1, Tone.now());
-        state[handIndex]?.signal.rampTo(frequencyValue, 0.1, Tone.now());
+        handAudio[handIndex]?.gain.gain.rampTo(
+          gainValue / HAND_COUNT,
+          0.1,
+          Tone.now(),
+        );
+        handAudio[handIndex]?.signal.rampTo(frequencyValue, 0.1, Tone.now());
       }
     });
   });
@@ -145,7 +147,7 @@ async function predictWebcam() {
     ensureAudio(handIndex);
 
     if (!hasData) {
-      state[handIndex]?.gain.gain.rampTo(0, 0.1, Tone.now());
+      handAudio[handIndex]?.gain.gain.rampTo(0, 0.1, Tone.now());
     }
   });
 
@@ -161,6 +163,8 @@ on("press", () => {
     Tone.start();
     toneStarted = true;
     console.log("started!");
+
+    globalAudio.gain = new Tone.Gain(0.9).toDestination();
   }
 });
 
