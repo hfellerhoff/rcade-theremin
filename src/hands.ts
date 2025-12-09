@@ -10,6 +10,7 @@ const vision = await FilesetResolver.forVisionTasks(
 export const handLandmarker = await HandLandmarker.createFromOptions(vision, {
   baseOptions: {
     modelAssetPath: "/model/hand_landmarker.task",
+    delegate: "GPU",
   },
   numHands: HAND_COUNT,
   runningMode: "VIDEO",
@@ -37,5 +38,5 @@ export const FINGERS = {
   PINKY_PIP: 18,
   PINKY_DIP: 19,
   PINKY_TIP: 20,
-  CENTER_PALM: 21,
+  // CENTER_PALM: 21,
 };

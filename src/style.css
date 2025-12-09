@@ -50,3 +50,30 @@ body {
 .opacity-none {
     opacity: 0;
 }
+
+#app {
+    width: 336px;
+    height: 262px;
+    overflow: hidden;
+    font-family: monospace;
+    background: black;
+}
+
+.finger {
+    width: 5px;
+    height: 5px;
+    border-radius: 9999px;
+    position: absolute;
+}
+.hand-0-finger {
+    background: red;
+}
+.hand-1-finger {
+    background: blue;
+}
+.hand-2-finger {
+    background: green;
+}
+.hand-3-finger {
+    background: purple;
+}

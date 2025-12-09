@@ -9,9 +9,16 @@ const WIDTH = 336;
 const HEIGHT = 262;
 
 const video = document.querySelector<HTMLVideoElement>("#video")!;
-const canvasElement = document.querySelector<HTMLCanvasElement>("#canvas")!;
+// const canvasElement = document.querySelector<HTMLCanvasElement>("#canvas")!;
 const helperTextElement =
   document.querySelector<HTMLDivElement>("#helper-text")!;
+
+const hands = [
+  document.querySelector<HTMLDivElement>("#hand-1")!,
+  document.querySelector<HTMLDivElement>("#hand-2")!,
+  document.querySelector<HTMLDivElement>("#hand-3")!,
+  document.querySelector<HTMLDivElement>("#hand-4")!,
+];
 
 let gameStarted = false;
 
@@ -25,7 +32,7 @@ const constraints = {
 let lastVideoTime = -1;
 let webcamRunning: Boolean = false;
 
-const ctx = canvasElement.getContext("2d");
+// const ctx = canvasElement.getContext("2d");
 
 type Audio =
   | undefined
@@ -33,6 +40,8 @@ type Audio =
       gain: Tone.Gain;
       oscillator: Tone.Oscillator;
       signal: Tone.Signal<"frequency">;
+      handElement: HTMLDivElement;
+      fingerElements: HTMLDivElement[];
     };
 
 const globalAudio: {
@@ -55,6 +64,7 @@ const handAudio: Record<number, Audio> = {
 //     });
 //   });
 // }
+//
 
 function ensureAudio(handIndex: number) {
   if (handAudio[handIndex] || !globalAudio.gain) return;
@@ -65,15 +75,30 @@ function ensureAudio(handIndex: number) {
     units: "frequency",
   }).connect(oscillator.frequency);
 
+  const handElement = hands[handIndex];
+
+  const fingerElements = Object.values(FINGERS).map((fingerValue) => {
+    const finger = document.createElement("div");
+    finger.id = `hand-${handIndex}-finger-${fingerValue}`;
+    finger.classList.add("finger");
+    finger.classList.add(`hand-${handIndex}-finger`);
+
+    handElement.appendChild(finger);
+
+    return finger;
+  });
+
   handAudio[handIndex] = {
     gain,
     oscillator,
     signal,
+    handElement: handElement,
+    fingerElements: fingerElements,
   };
 }
 
 async function predictWebcam() {
-  if (!canvasElement || !ctx) return;
+  // if (!canvasElement || !ctx) return;
 
   let startTimeMs = performance.now();
   if (lastVideoTime !== video.currentTime) {
@@ -82,9 +107,7 @@ async function predictWebcam() {
 
   const results = handLandmarker.detectForVideo(video, startTimeMs);
 
-  ctx.clearRect(0, 0, WIDTH, HEIGHT);
-  ctx.fillStyle = "black";
-  ctx.fillRect(0, 0, WIDTH, HEIGHT);
+  // console.log("time to process:", performance.now() - startTimeMs);
 
   const handHasDataList = Object.keys(handAudio).map((_, index) => {
     return !!results.landmarks[index]?.length;
@@ -93,23 +116,19 @@ async function predictWebcam() {
   results.landmarks.forEach((hand, handIndex) => {
     ensureAudio(handIndex);
 
-    hand.forEach((finger, fingerIndex) => {
-      if (handIndex === 0) {
-        ctx.strokeStyle = "red";
-      }
-      if (handIndex === 1) {
-        ctx.strokeStyle = "blue";
-      }
-      if (handIndex === 2) {
-        ctx.strokeStyle = "green";
-      }
-      if (handIndex === 3) {
-        ctx.strokeStyle = "purple";
-      }
+    const hasData = handHasDataList[handIndex];
+    if (
+      hasData &&
+      handAudio[handIndex]?.handElement.classList.contains("opacity-none")
+    ) {
+      handAudio[handIndex]?.handElement.classList.remove("opacity-none");
+    }
 
-      ctx.beginPath();
-      ctx.arc(WIDTH - finger.x * WIDTH, finger.y * HEIGHT, 2, 0, 2 * Math.PI);
-      ctx.stroke();
+    hand.forEach((finger, fingerIndex) => {
+      const fingerElement = handAudio[handIndex]?.fingerElements[fingerIndex]!;
+
+      fingerElement.style["top"] = `${finger.y * HEIGHT}px`;
+      fingerElement.style["left"] = `${WIDTH - finger.x * WIDTH}px`;
 
       const frequencyValue = 100 + finger.x * 500;
       const gainAdjustment = 100 / frequencyValue;
@@ -129,8 +148,12 @@ async function predictWebcam() {
   handHasDataList.map((hasData, handIndex) => {
     ensureAudio(handIndex);
 
-    if (!hasData) {
+    if (
+      !hasData &&
+      !handAudio[handIndex]?.handElement.classList.contains("opacity-none")
+    ) {
       handAudio[handIndex]?.gain.gain.rampTo(0, 0.1, Tone.now());
+      handAudio[handIndex]?.handElement.classList.add("opacity-none");
     }
   });
 
@@ -174,9 +197,7 @@ function start() {
     navigator.mediaDevices
       .getUserMedia(constraints)
       .then(function success(stream) {
-        console.log(stream);
         video.srcObject = stream;
-        canvasElement.classList.remove("hidden");
         helperTextElement.textContent = "Hold up your hands!";
         video.addEventListener("loadeddata", predictWebcam);
         webcamRunning = true;
