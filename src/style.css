@@ -10,14 +10,15 @@ body {
     width: 336px;
     height: 262px;
     overflow: hidden;
-    font-family: system-ui, sans-serif;
+    font-family: monospace;
+    background: black;
 }
 
 #canvas {
     width: 336px;
     height: 262px;
     overflow: hidden;
-    font-family: system-ui, sans-serif;
+    font-family: monospace;
     background: black;
 }
 
@@ -25,16 +26,27 @@ body {
     width: 336px;
     height: 262px;
     overflow: hidden;
-    font-family: system-ui, sans-serif;
-    background: black;
+    font-family: monospace;
     z-index: 9999px;
     color: white;
+
+    position: absolute;
+    inset: 0;
 
     display: flex;
     align-items: center;
     justify-content: center;
+
+    transition: opacity 0.3s;
+
+    background: transparent;
+    pointer-events: none;
 }
 
 .hidden {
     display: none;
+}
+
+.opacity-none {
+    opacity: 0;
 }

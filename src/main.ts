@@ -2,10 +2,6 @@ import * as Tone from "tone";
 
 import { SYSTEM, on } from "@rcade/plugin-input-classic";
 
-import type {
-  HandLandmarkerResult,
-  NormalizedLandmark,
-} from "@mediapipe/tasks-vision";
 import { FINGERS, HAND_COUNT, handLandmarker } from "./hands";
 import "./style.css";
 
@@ -14,20 +10,10 @@ const HEIGHT = 262;
 
 const video = document.querySelector<HTMLVideoElement>("#video")!;
 const canvasElement = document.querySelector<HTMLCanvasElement>("#canvas")!;
-const landingElement = document.querySelector<HTMLDivElement>("#landing")!;
+const helperTextElement =
+  document.querySelector<HTMLDivElement>("#helper-text")!;
 
 let gameStarted = false;
-
-// function update() {
-//   if (!gameStarted) {
-
-//   } else {
-//   }
-
-//   requestAnimationFrame(update);
-// }
-
-// update();
 
 const constraints = {
   audio: false,
@@ -40,11 +26,6 @@ let lastVideoTime = -1;
 let webcamRunning: Boolean = false;
 
 const ctx = canvasElement.getContext("2d");
-
-type Finger = NormalizedLandmark;
-
-const createHand = () =>
-  new Array(22).fill(0).map((_, i) => ({ x: 0, y: 0, z: 0, visibility: 0 }));
 
 type Audio =
   | undefined
@@ -102,6 +83,8 @@ async function predictWebcam() {
   const results = handLandmarker.detectForVideo(video, startTimeMs);
 
   ctx.clearRect(0, 0, WIDTH, HEIGHT);
+  ctx.fillStyle = "black";
+  ctx.fillRect(0, 0, WIDTH, HEIGHT);
 
   const handHasDataList = Object.keys(handAudio).map((_, index) => {
     return !!results.landmarks[index]?.length;
@@ -151,6 +134,16 @@ async function predictWebcam() {
     }
   });
 
+  if (handHasDataList.filter(Boolean).length === 0) {
+    if (helperTextElement.classList.contains("opacity-none")) {
+      helperTextElement.classList.remove("opacity-none");
+    }
+  } else {
+    if (!helperTextElement.classList.contains("opacity-none")) {
+      helperTextElement.classList.add("opacity-none");
+    }
+  }
+
   // Call this function again to keep predicting when the browser is ready.
   if (webcamRunning === true) {
     window.requestAnimationFrame(predictWebcam);
@@ -184,7 +177,7 @@ function start() {
         console.log(stream);
         video.srcObject = stream;
         canvasElement.classList.remove("hidden");
-        landingElement.remove();
+        helperTextElement.textContent = "Hold up your hands!";
         video.addEventListener("loadeddata", predictWebcam);
         webcamRunning = true;
       });
