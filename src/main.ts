@@ -107,7 +107,7 @@ async function predictWebcam() {
 
   const results = handLandmarker.detectForVideo(video, startTimeMs);
 
-  // console.log("time to process:", performance.now() - startTimeMs);
+  console.log("time to process:", performance.now() - startTimeMs);
 
   const handHasDataList = Object.keys(handAudio).map((_, index) => {
     return !!results.landmarks[index]?.length;
@@ -148,12 +148,13 @@ async function predictWebcam() {
   handHasDataList.map((hasData, handIndex) => {
     ensureAudio(handIndex);
 
-    if (
-      !hasData &&
-      !handAudio[handIndex]?.handElement.classList.contains("opacity-none")
-    ) {
+    if (!hasData) {
       handAudio[handIndex]?.gain.gain.rampTo(0, 0.1, Tone.now());
-      handAudio[handIndex]?.handElement.classList.add("opacity-none");
+      if (
+        !handAudio[handIndex]?.handElement.classList.contains("opacity-none")
+      ) {
+        handAudio[handIndex]?.handElement.classList.add("opacity-none");
+      }
     }
   });
 
